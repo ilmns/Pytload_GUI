@@ -1,9 +1,13 @@
-import requests, sys, queue
+import glob
+import os
+import queue
+import sys
+
+import ffmpy
+import requests
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-
-
 
 class App(QMainWindow):
     
@@ -30,8 +34,8 @@ class App(QMainWindow):
 
         # Create textbox
         self.textbox = QLineEdit(self)
-        self.textbox.move(20, 40)
-        self.textbox.resize(300,30)
+        self.textbox.move(10, 40)
+        self.textbox.resize(330,30)
         
         # Create a button in the window
         self.button1 = QPushButton('Download', self)
@@ -42,47 +46,51 @@ class App(QMainWindow):
 
         self.button3 = QPushButton('Abort', self)
         self.button3.move(230,75)
+
+        # self.button4 = QPushButton('Compress', self)
+        # self.button4.move(250,75)
       
         # connect button to function on_click
         self.button1.clicked.connect(self.on_click1)
         self.button2.clicked.connect(self.on_click2)
         self.button3.clicked.connect(self.on_click3)
+        #self.button4.clicked.connect(self.on_click3)
 
         # Increase progress bar
-        self.progressBar = QProgressBar(self, minimumWidth=310)
+        self.progressBar = QProgressBar(self, minimumWidth=335)
         self.progressBar.setValue(0)
-        self.progressBar.move(15,60)
+        self.progressBar.move(8,60)
         windowLayout.addWidget(self.progressBar)
-      
+
         # Download button event
-    
     def on_click1(self):
         textboxValue = self.textbox.text
         the_url = textboxValue()
 
-        QMessageBox.question(self, "Message", "\n" + the_url, QMessageBox.Apply, QMessageBox.Cancel)
+        #print(the_url.split(" ", 1)[2])
 
+        #print(textboxValue, the_url)
+
+        QMessageBox.question(self, "Message", "\n" + the_url, QMessageBox.Apply, QMessageBox.Cancel)
 
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        fileName, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()", ".mp4", "Mp4 format (.mp4);;All formats (*)", options=options)
-        
-        #the_filesize = requests.get(the_url, stream=True).headers['']
+        fileName, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()",  the_url, ".mp4", "Mp4 format (.mp4);;All formats (*)", options=options)
 
         the_filesize = requests.get(the_url, stream=True).headers['Content-Length']
         the_filepath = fileName
-        the_fileobj = open(the_filepath, 'wb')
+        the_fileobj = open(the_filepath, 'wb') 
 
         self.downloadThread = downloadThread(the_url, the_filesize, the_fileobj, buffer=10240)
         self.downloadThread.download_proess_signal.connect(self.set_progressbar_value)
-        self.downloadThread.start() 
-
+        self.downloadThread.start()
 
     # Setting progress bar
     def set_progressbar_value(self, value):
         self.progressBar.setValue(value)
         if value == 100:
             QMessageBox.information(self, "Tips", "Download success!")
+            self.progressBar.setValue(0)
             return
 
     def on_click2(self):
@@ -94,7 +102,34 @@ class App(QMainWindow):
 
 
     def on_click3(self):
-        self.close()
+         self.downloadThread.terminate() 
+         self.close()
+
+    # def compressing(self):
+
+    #     files = {}
+    #     for f in file_names:
+    #         print("")
+    #         outfile_name 
+
+    #     original_files = []
+    #     compressed_files = []
+    #     for f in files:
+    #         outfile_name = files[f]
+    #         if outfile_name != "":
+    #             outfile = "%s\\%s" % (the_filepath, outfile_name)
+    #         try:
+    #             os.remove(outfile)
+    #         except:
+    #             pass
+    #         input_params={f:None}
+    #         output_params = {outfile: '-vcodec libx264 -crf %s'}
+    #         ff = ffmpy.FFmpeg(inputs=input_params,outputs=output_params)
+    #         print(ff.cmd)
+    #         ff.run()
+    #         original_files.append(f)
+    #         compressed_files.append(outfile)
+    #         print("Done")
 
 #Download thread
 class downloadThread(QThread):
@@ -124,8 +159,7 @@ class downloadThread(QThread):
 
         except Exception as e:
             print(e)
-
-    
+        
 if __name__ == '__main__':
 
     app = QApplication(sys.argv)
