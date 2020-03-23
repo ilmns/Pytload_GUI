@@ -2,12 +2,21 @@ import glob
 import os
 import queue
 import sys
-
+import bs4
 import ffmpy
 import requests
+import urllib3
+import playsound
+
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
+from bs4 import BeautifulSoup
+from ffmpy import FFmpeg
+from PyQt5.QtMultimedia import QSound
+
+options = QFileDialog.Options()
+options |= QFileDialog.DontUseNativeDialog
 
 class App(QMainWindow):
     
@@ -16,120 +25,132 @@ class App(QMainWindow):
         self.title = 'Download manager'
         self.left = 10
         self.top = 10
-        self.width = 350
-        self.height = 300
+        self.width = 370
+        self.height = 450
         self.initUI()
 
     def initUI(self):
-
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
 
         windowLayout = QHBoxLayout()
         self.setLayout(windowLayout)
 
-        #Labels
-        label = QLabel("Paste url page:", self)
-        label.move(120,5)
+        self.listWidget = QListWidget()
+        self.listWidget.resize(300, 50)
 
-        # Create textbox
-        self.textbox = QLineEdit(self)
-        self.textbox.move(10, 40)
-        self.textbox.resize(330,30)
+        # Edit box with drag 
+        self.editBox = QLineEdit(self)
+        self.editBox.font()
+        self.editBox.setDragEnabled(True)
+        self.editBox.move(10, 10)
+        self.editBox.resize(350,30)
+
+        
+        # Set data
+        self.table = QTableWidget(self)
+        self.tableItem = QTableWidgetItem()
+        self.table.move(5,100)
+        self.table.resize(360, 325)
+        self.table.setRowCount(10)
+        self.table.setColumnCount(1)
+        self.table.setColumnWidth(50, 200)
+
+        self.table.setHorizontalHeaderLabels(("Downloaded media;").split(";"))
+        self.table.setVerticalHeaderLabels(("1;2;3;4;5;6;7;8;9;10;").split(";"))
         
         # Create a button in the window
         self.button1 = QPushButton('Download', self)
-        self.button1.move(10,75)
+        self.button1.move(0,45)
         
-        self.button2 = QPushButton('Browse', self)
-        self.button2.move(120,75)
+        self.button2 = QPushButton('Location', self)
+        self.button2.move(90,45)
 
-        self.button3 = QPushButton('Abort', self)
-        self.button3.move(230,75)
+        self.button3 = QPushButton('Compress', self)
+        self.button3.move(180,45)
 
-        # self.button4 = QPushButton('Compress', self)
-        # self.button4.move(250,75)
+        self.button4 = QPushButton('Exit', self)
+        self.button4.move(270,45)
+
+        self.button5 = QPushButton('List', self)
+        self.button5.move(0,68)
       
         # connect button to function on_click
         self.button1.clicked.connect(self.on_click1)
         self.button2.clicked.connect(self.on_click2)
         self.button3.clicked.connect(self.on_click3)
-        #self.button4.clicked.connect(self.on_click3)
+        self.button4.clicked.connect(self.on_click4)
 
         # Increase progress bar
-        self.progressBar = QProgressBar(self, minimumWidth=335)
+        self.progressBar = QProgressBar(self, minimumWidth=355)
         self.progressBar.setValue(0)
-        self.progressBar.move(8,60)
+        self.progressBar.move(7.5,30)
         windowLayout.addWidget(self.progressBar)
 
-        # Download button event
-    def on_click1(self):
-        textboxValue = self.textbox.text
-        the_url = textboxValue()
 
-        #print(the_url.split(" ", 1)[2])
-
-        #print(textboxValue, the_url)
-
-        QMessageBox.question(self, "Message", "\n" + the_url, QMessageBox.Apply, QMessageBox.Cancel)
-
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        fileName, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()",  the_url, ".mp4", "Mp4 format (.mp4);;All formats (*)", options=options)
-
-        the_filesize = requests.get(the_url, stream=True).headers['Content-Length']
-        the_filepath = fileName
-        the_fileobj = open(the_filepath, 'wb') 
-
-        self.downloadThread = downloadThread(the_url, the_filesize, the_fileobj, buffer=10240)
-        self.downloadThread.download_proess_signal.connect(self.set_progressbar_value)
-        self.downloadThread.start()
-
-    # Setting progress bar
+        # Setting progress bar
     def set_progressbar_value(self, value):
         self.progressBar.setValue(value)
         if value == 100:
+            playsound.playsound('clearly.mp3', True)
             QMessageBox.information(self, "Tips", "Download success!")
             self.progressBar.setValue(0)
             return
 
+    def on_click1(self):
+        editBoxValue = self.editBox.text
+        the_url = editBoxValue()
+
+        QMessageBox.question(self, "Message", "\n" + the_url, QMessageBox.Apply, QMessageBox.Cancel)
+        fileName, _ = QFileDialog.getSaveFileName(self, "Saving file",  the_url, "Mp4 format (.mp4);;All formats (*)", options=options)
+
+        the_filesize = requests.get(the_url, stream=True).headers['Content-Length']
+        the_filepath = fileName
+        the_fileobj = open(the_filepath, 'wb')
+
+
+        l = []
+        l.append(the_url)
+        x = 0
+        y = 0
+
+        for i in l:            
+            self.table.setItem(x, y, QTableWidgetItem("{0}".format(i)))
+
+
+
+            
+
+        self.downloadThread = downloadThread(the_url, the_filesize, the_fileobj, buffer=10240)
+        self.downloadThread.download_proess_signal.connect(self.set_progressbar_value)
+        self.downloadThread.start()     
+
     def on_click2(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        fileName, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()", ".mp4", "Mp4 format (.mp4);;All formats (*)", options=options)
+        editBoxValue = self.editBox.text
+        the_url = editBoxValue()
+        fileName, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()",  the_url, "Mp4 format (.mp4);;All formats (*)", options=options)
+        
         if fileName:
             print(fileName)
 
-
+        # Compress
     def on_click3(self):
-         self.downloadThread.terminate() 
-         self.close()
 
-    # def compressing(self):
+        textboxValue = self.editBox.text
+        url = textboxValue()       
 
-    #     files = {}
-    #     for f in file_names:
-    #         print("")
-    #         outfile_name 
+        fileName, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()", "" "(*)", "All formats (*)", options=options)
+        if fileName:
+            print(fileName)
 
-    #     original_files = []
-    #     compressed_files = []
-    #     for f in files:
-    #         outfile_name = files[f]
-    #         if outfile_name != "":
-    #             outfile = "%s\\%s" % (the_filepath, outfile_name)
-    #         try:
-    #             os.remove(outfile)
-    #         except:
-    #             pass
-    #         input_params={f:None}
-    #         output_params = {outfile: '-vcodec libx264 -crf %s'}
-    #         ff = ffmpy.FFmpeg(inputs=input_params,outputs=output_params)
-    #         print(ff.cmd)
-    #         ff.run()
-    #         original_files.append(f)
-    #         compressed_files.append(outfile)
-    #         print("Done")
+        i_params={'pipe:0': '-f rawvideo -pix_fmt rgb24 -s:v 1280x720'},
+        o_params={'pipe:1': '-c:v h264 -f mp4'}
+        ff = ffmpy.FFmpeg(inputs=i_params, outputs=o_params) 
+        print(ff.cmd)
+        ff.run()
+
+    def on_click4(self):
+        sys.exit(app.exec_())
 
 #Download thread
 class downloadThread(QThread):
@@ -159,7 +180,8 @@ class downloadThread(QThread):
 
         except Exception as e:
             print(e)
-        
+
+
 if __name__ == '__main__':
 
     app = QApplication(sys.argv)
@@ -167,3 +189,4 @@ if __name__ == '__main__':
     w.show()
     app.quit()
     sys.exit(app.exec_())
+
